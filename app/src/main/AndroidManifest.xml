@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:tools="http://schemas.android.com/tools"
+    xmlns:android="http://schemas.android.com/apk/res/android">
 
 
     <application
@@ -17,7 +18,8 @@
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
-            android:theme="@style/Theme.MyWidget">
+            android:theme="@style/Theme.MyWidget"
+            tools:targetApi="26">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
@@ -26,15 +28,180 @@
         </activity>
 
         <receiver
-            android:name=".clock.MyClockWidgetReceiver"
+            android:name=".clock.MyClockWidgetReceiver1x1"
             android:exported="true"
-            android:label="My Widget">
+            android:label="My Widget 1x1">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
-                android:resource="@xml/my_widget_info" />
+                android:resource="@xml/my_widget_info_1x1" />
+        </receiver>
+        <receiver
+            android:name=".clock.MyClockWidgetReceiver1x2"
+            android:exported="true"
+            android:label="My Widget 1x2">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/my_widget_info_1x2" />
+        </receiver>
+        <receiver
+            android:name=".clock.MyClockWidgetReceiver1x3"
+            android:exported="true"
+            android:label="My Widget 1x3">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/my_widget_info_1x3" />
+        </receiver>
+        <receiver
+            android:name=".clock.MyClockWidgetReceiver1x4"
+            android:exported="true"
+            android:label="My Widget 1x4">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/my_widget_info_1x4" />
+        </receiver>
+        <receiver
+            android:name=".clock.MyClockWidgetReceiver2x1"
+            android:exported="true"
+            android:label="My Widget 2x1">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/my_widget_info_2x1" />
+        </receiver>
+        <receiver
+            android:name=".clock.MyClockWidgetReceiver2x2"
+            android:exported="true"
+            android:label="My Widget 2x2">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/my_widget_info_2x2" />
+        </receiver>
+        <receiver
+            android:name=".clock.MyClockWidgetReceiver2x3"
+            android:exported="true"
+            android:label="My Widget 2x3">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/my_widget_info_2x3" />
+        </receiver>
+        <receiver
+            android:name=".clock.MyClockWidgetReceiver2x4"
+            android:exported="true"
+            android:label="My Widget 2x4">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/my_widget_info_2x4" />
+        </receiver>
+        <receiver
+            android:name=".clock.MyClockWidgetReceiver3x1"
+            android:exported="true"
+            android:label="My Widget 3x1">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/my_widget_info_3x1" />
+        </receiver>
+        <receiver
+            android:name=".clock.MyClockWidgetReceiver3x2"
+            android:exported="true"
+            android:label="My Widget 3x2">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/my_widget_info_3x2" />
+        </receiver>
+        <receiver
+            android:name=".clock.MyClockWidgetReceiver3x3"
+            android:exported="true"
+            android:label="My Widget 3x3">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/my_widget_info_3x3" />
+        </receiver>
+        <receiver
+            android:name=".clock.MyClockWidgetReceiver3x4"
+            android:exported="true"
+            android:label="My Widget 3x4">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/my_widget_info_3x4" />
+        </receiver>
+        <receiver
+            android:name=".clock.MyClockWidgetReceiver4x1"
+            android:exported="true"
+            android:label="My Widget 4x1">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/my_widget_info_4x1" />
+        </receiver>
+        <receiver
+            android:name=".clock.MyClockWidgetReceiver4x2"
+            android:exported="true"
+            android:label="My Widget 4x2">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/my_widget_info_4x2" />
+        </receiver>
+        <receiver
+            android:name=".clock.MyClockWidgetReceiver4x3"
+            android:exported="true"
+            android:label="My Widget 4x3">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/my_widget_info_4x3" />
+        </receiver>
+        <receiver
+            android:name=".clock.MyClockWidgetReceiver4x4"
+            android:exported="true"
+            android:label="My Widget 4x4">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/my_widget_info_4x4" />
         </receiver>
 
         <service
