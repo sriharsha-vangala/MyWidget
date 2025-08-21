@@ -2,11 +2,16 @@ package com.example.mywidget
 
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
+import android.content.Context
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -35,9 +40,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.mywidget.widget.MyWidgetReceiver1x1
@@ -57,7 +64,17 @@ import com.example.mywidget.widget.MyWidgetReceiver4x2
 import com.example.mywidget.widget.MyWidgetReceiver4x3
 import com.example.mywidget.widget.MyWidgetReceiver4x4
 import com.example.mywidget.datastore.storeUIJson
+import com.example.mywidget.fonts.FontRegistry
+import com.example.mywidget.json.UiSchemaValidator
 import com.example.mywidget.ui.theme.MyWidgetTheme
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
+import java.io.BufferedInputStream
+import java.io.File
+import java.io.FileOutputStream
+import java.util.zip.ZipInputStream
 
 @RequiresApi(Build.VERSION_CODES.O)
 class MainActivity : ComponentActivity() {
@@ -66,10 +83,128 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             MyWidgetTheme {
-                AddWidgetButtons()
+//                AddWidgetButtons()
+                UploadZipScreen {
+                    val json = JSONObject(it)
+                    val result = UiSchemaValidator.validate(json)
+                    if (!result.isValid) {
+                        Toast.makeText(this, "Invalid UI: ${result.errors.joinToString()}", Toast.LENGTH_LONG).show()
+                    } else {
+                        storeUIJson(this@MainActivity, it)
+                        requestWidgetPin(3, 3)
+                    }
+                }
             }
         }
     }
+
+    @Composable
+    fun UploadZipScreen(onJsonReady: (String) -> Unit) {
+        var jsonContent by remember { mutableStateOf<String?>(null) }
+        var status by remember { mutableStateOf("Select a zip file") }
+
+        val context = LocalContext.current
+        val coroutineScope = rememberCoroutineScope()
+
+        val filePickerLauncher =
+            rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+                uri?.let {
+                    status = "Processing..."
+                    coroutineScope.launch {
+                        val json = unzipAndStore(context, uri)
+                        if (json != null) {
+                            jsonContent = json
+                            status = "JSON extracted!"
+                            onJsonReady(json)
+                        } else {
+                            status = "Failed to read zip"
+                        }
+                    }
+                }
+            }
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Button(onClick = { filePickerLauncher.launch(arrayOf("application/zip")) }) {
+                Text("Upload Zip File")
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(status)
+
+            jsonContent?.let {
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = it.take(500) + if (it.length > 500) "..." else "",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
+    }
+
+    suspend fun unzipAndStore(context: Context, uri: Uri): String? =
+        withContext(Dispatchers.IO) {
+            val baseDir = File(context.filesDir, "ui_package").apply {
+                // Clean up old extraction
+                if (exists()) deleteRecursively()
+                mkdirs()
+            }
+            val fontsDir = File(context.filesDir, "fonts").apply { mkdirs() }
+
+            var jsonString: String? = null
+
+            context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                ZipInputStream(BufferedInputStream(inputStream)).use { zis ->
+                    var entry = zis.nextEntry
+                    while (entry != null) {
+                        val name = entry.name
+
+                        // Skip macOS metadata & hidden files
+                        if (name.contains("__MACOSX") || name.endsWith(".DS_Store")) {
+                            zis.closeEntry()
+                            entry = zis.nextEntry
+                            continue
+                        }
+
+                        val file = when {
+                            name.endsWith(".ttf") || name.endsWith(".otf") -> File(fontsDir, name)
+                            else -> File(baseDir, name)
+                        }
+
+                        if (entry.isDirectory) {
+                            if (file.exists() && file.isFile) file.delete()
+                            file.mkdirs()
+                        } else {
+                            val parent = file.parentFile
+                            if (parent != null) {
+                                if (parent.exists() && parent.isFile) parent.delete()
+                                parent.mkdirs()
+                            }
+
+                            FileOutputStream(file).use { fos -> zis.copyTo(fos) }
+
+                            // Register font immediately if it is a font file
+                            if (file.extension in listOf("ttf", "otf")) {
+                                FontRegistry.registerFont(file.nameWithoutExtension, file.absolutePath)
+                            }
+
+                            if (file.name.equals("ui.json", ignoreCase = true)) {
+                                jsonString = file.readText()
+                            }
+                        }
+
+                        zis.closeEntry()
+                        entry = zis.nextEntry
+                    }
+                }
+            }
+            return@withContext jsonString
+        }
 
     @Composable
     fun AddWidgetButtons() {

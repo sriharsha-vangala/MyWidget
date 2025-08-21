@@ -1,6 +1,5 @@
 package com.example.mywidget.widget
 
-import android.annotation.SuppressLint
 import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
@@ -21,8 +20,9 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import com.example.mywidget.datastore.getUIJsonString
-import com.example.mywidget.dynamic.UiElement
 import com.example.mywidget.dynamic.UiElementHelper
+import com.example.mywidget.json.UiElement
+import com.example.mywidget.json.UiParser
 
 class MyWidget : GlanceAppWidget() {
 
@@ -43,50 +43,8 @@ class MyWidget : GlanceAppWidget() {
                 .background(ColorProvider(Color.White)),
             contentAlignment = Alignment.Center
         ) {
-            val elements = UiElementHelper.parseUiElement(uiJsonString)
-            val root = elements.first { it.parentId == null }
-            val childrenMap = UiElementHelper.buildChildrenMap(elements)
-            RenderElement(root, childrenMap)
-        }
-    }
-
-    @SuppressLint("RestrictedApi")
-    @Composable
-    fun RenderElement(element: UiElement, childrenMap: Map<String?, List<UiElement>>) {
-        val children = childrenMap[element.id] ?: emptyList()
-        WithMargin(element.attributes) {
-            val modifier = UiElementHelper.buildModifier(element.attributes)
-            when (element) {
-                is UiElement.Column -> {
-                    Column(modifier = modifier) {
-                        children.forEach { RenderElement(it, childrenMap) }
-                    }
-                }
-
-                is UiElement.Row -> {
-                    Row(modifier = modifier) {
-                        children.forEach { RenderElement(it, childrenMap) }
-                    }
-                }
-
-                is UiElement.Stack -> {
-                    Box(modifier = modifier) {
-                        children.forEach { RenderElement(it, childrenMap) }
-                    }
-                }
-
-                is UiElement.Text -> {
-                    Text(
-                        text = element.text,
-                        modifier = modifier,
-                        style = TextStyle(
-                            color = ColorProvider(
-                                color = UiElementHelper.getTextColor(element.attributes)
-                            )
-                        )
-                    )
-                }
-            }
+            val elements = UiParser.parseUiJsonMap(jsonString = uiJsonString)
+            RenderUiElement(elements)
         }
     }
 
@@ -100,5 +58,39 @@ class MyWidget : GlanceAppWidget() {
         } else {
             content()
         }
+    }
+
+    @Composable
+    fun RenderUiElement(element: UiElement) {
+        val attributes = element.attributes
+        WithMargin(attributes){
+            val modifier = UiElementHelper.buildModifier(attributes)
+            when (element) {
+                is UiElement.Container -> {
+                    when (element.layout) {
+                        UiElement.Layout.Row -> Row(modifier = modifier) {
+                            RenderChildren(element)
+                        }
+                        UiElement.Layout.Column -> Column(modifier = modifier) {
+                            RenderChildren(element)
+                        }
+                        UiElement.Layout.Stack -> Box(modifier = modifier) {
+                            RenderChildren(element)
+                        }
+                    }
+                }
+                is UiElement.TextNode -> {
+                    Text(
+                        text = element.text,
+                        modifier = modifier
+                    )
+                }
+            }
+        }
+    }
+
+    @Composable
+    fun RenderChildren(uiElement: UiElement.Container) {
+        uiElement.children.forEach { RenderUiElement(it) }
     }
 }
