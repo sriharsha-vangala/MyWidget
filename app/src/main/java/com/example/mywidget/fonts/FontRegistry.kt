@@ -20,4 +20,8 @@ object FontRegistry {
             fonts[file.nameWithoutExtension] = file.absolutePath
         }
     }
+
+    fun clearAll() {
+        fonts.clear()
+    }
 }

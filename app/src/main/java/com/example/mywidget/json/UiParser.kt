@@ -52,17 +52,24 @@ object UiParser {
             }
 
             val type = obj.optString("type", "column") // default root
-            return if (type == "text") {
-                val text = obj.optString("text", "")
-                UiElement.TextNode(id, text, attrs)
-            } else {
-                val layout = when (type.lowercase()) {
-                    "row" -> UiElement.Layout.Row
-                    "column" -> UiElement.Layout.Column
-                    "stack" -> UiElement.Layout.Stack
-                    else -> UiElement.Layout.Column
+            return when (type.lowercase()) {
+                "text" -> {
+                    val text = obj.optString("text", "")
+                    UiElement.TextNode(id, text, attrs)
                 }
-                UiElement.Container(id, layout, attrs, children)
+                "image" -> {
+                    val src = obj.optString("src", "")
+                    UiElement.ImageNode(id, src, attrs)
+                }
+                else -> {
+                    val layout = when (type.lowercase()) {
+                        "row" -> UiElement.Layout.Row
+                        "column" -> UiElement.Layout.Column
+                        "stack" -> UiElement.Layout.Stack
+                        else -> UiElement.Layout.Column
+                    }
+                    UiElement.Container(id, layout, attrs, children)
+                }
             }
         }
 

@@ -7,7 +7,6 @@ import androidx.glance.GlanceModifier
 import androidx.glance.background
 import androidx.glance.layout.width
 import androidx.glance.unit.ColorProvider
-import androidx.core.graphics.toColorInt
 import androidx.glance.layout.fillMaxHeight
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
@@ -21,11 +20,10 @@ object UiElementHelper {
     fun buildModifier(attrs: Map<String, String>): GlanceModifier {
         var modifier: GlanceModifier = GlanceModifier.padding(0.dp)
 
-        attrs["background"]?.let {
-            try {
-                val color = ColorRegistry.getColor(it)
-                modifier = modifier.background(ColorProvider(color))
-            } catch (_: Exception) { }
+        // Handle background color with color registry support
+        attrs["backgroundColor"]?.let { colorRef ->
+            val color = ColorRegistry.getColor(colorRef)
+            modifier = modifier.background(ColorProvider(color))
         }
 
         attrs["width"]?.let {
@@ -48,6 +46,39 @@ object UiElementHelper {
     }
 
     fun getTextColor(attrs: Map<String, String?>): Color {
-        return attrs["color"]?.let { Color(it.toColorInt()) } ?: Color.Red
+        return attrs["color"]?.let {
+            ColorRegistry.getColor(it)
+        } ?: Color.Black
+    }
+
+    data class MarginValues(
+        val top: Int,
+        val bottom: Int,
+        val start: Int,
+        val end: Int
+    )
+
+    fun calculateMargins(attrs: Map<String, String>): MarginValues {
+        val marginTop = attrs["marginTop"]?.toIntOrNull()
+        val marginBottom = attrs["marginBottom"]?.toIntOrNull()
+        val marginStart = attrs["marginStart"]?.toIntOrNull()
+        val marginEnd = attrs["marginEnd"]?.toIntOrNull()
+
+        val marginVertical = attrs["marginVertical"]?.toIntOrNull()
+        val marginHorizontal = attrs["marginHorizontal"]?.toIntOrNull()
+
+        val margin = attrs["margin"]?.toIntOrNull()
+
+        // Calculate final margin values with priority order:
+        // 1. Individual sides (highest priority)
+        // 2. Vertical/Horizontal margins
+        // 3. General margin (lowest priority)
+
+        val finalTop = marginTop ?: marginVertical ?: margin ?: 0
+        val finalBottom = marginBottom ?: marginVertical ?: margin ?: 0
+        val finalStart = marginStart ?: marginHorizontal ?: margin ?: 0
+        val finalEnd = marginEnd ?: marginHorizontal ?: margin ?: 0
+
+        return MarginValues(finalTop, finalBottom, finalStart, finalEnd)
     }
 }

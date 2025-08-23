@@ -17,5 +17,11 @@ sealed class UiElement {
         override val attributes: Map<String, String> = emptyMap()
     ) : UiElement()
 
+    data class ImageNode(
+        override val id: String,
+        val src: String,
+        override val attributes: Map<String, String> = emptyMap()
+    ) : UiElement()
+
     enum class Layout { Row, Column, Stack }
 }

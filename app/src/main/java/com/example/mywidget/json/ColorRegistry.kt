@@ -14,5 +14,8 @@ object ColorRegistry {
     }
 
     fun getColor(name: String): Color = colors[name] ?: Color.White
-}
 
+    fun clearAll() {
+        colors.clear()
+    }
+}

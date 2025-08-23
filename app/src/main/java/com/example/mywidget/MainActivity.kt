@@ -2,7 +2,6 @@ package com.example.mywidget
 
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
-import android.content.Context
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -13,324 +12,478 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material3.Button
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.mywidget.widget.MyWidgetReceiver1x1
-import com.example.mywidget.widget.MyWidgetReceiver1x2
-import com.example.mywidget.widget.MyWidgetReceiver1x3
-import com.example.mywidget.widget.MyWidgetReceiver1x4
-import com.example.mywidget.widget.MyWidgetReceiver2x1
-import com.example.mywidget.widget.MyWidgetReceiver2x2
-import com.example.mywidget.widget.MyWidgetReceiver2x3
-import com.example.mywidget.widget.MyWidgetReceiver2x4
-import com.example.mywidget.widget.MyWidgetReceiver3x1
-import com.example.mywidget.widget.MyWidgetReceiver3x2
-import com.example.mywidget.widget.MyWidgetReceiver3x3
-import com.example.mywidget.widget.MyWidgetReceiver3x4
-import com.example.mywidget.widget.MyWidgetReceiver4x1
-import com.example.mywidget.widget.MyWidgetReceiver4x2
-import com.example.mywidget.widget.MyWidgetReceiver4x3
-import com.example.mywidget.widget.MyWidgetReceiver4x4
-import com.example.mywidget.datastore.storeUIJson
-import com.example.mywidget.fonts.FontRegistry
-import com.example.mywidget.json.UiSchemaValidator
+import com.example.mywidget.core.WidgetPackageManager
+import com.example.mywidget.core.ProcessResult
+import com.example.mywidget.core.UpdateResult
+import com.example.mywidget.engine.factory.WidgetFactory
+import com.example.mywidget.engine.factory.GridSize
+import com.example.mywidget.widget.*
 import com.example.mywidget.ui.theme.MyWidgetTheme
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import org.json.JSONObject
-import java.io.BufferedInputStream
-import java.io.File
-import java.io.FileOutputStream
-import java.util.zip.ZipInputStream
 
 @RequiresApi(Build.VERSION_CODES.O)
 class MainActivity : ComponentActivity() {
+    private lateinit var packageManager: WidgetPackageManager
+    private val widgetFactory = WidgetFactory()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        packageManager = WidgetPackageManager.getInstance(this)
+
         enableEdgeToEdge()
         setContent {
             MyWidgetTheme {
-//                AddWidgetButtons()
-                UploadZipScreen {
-                    val json = JSONObject(it)
-                    val result = UiSchemaValidator.validate(json)
-                    if (!result.isValid) {
-                        Toast.makeText(this, "Invalid UI: ${result.errors.joinToString()}", Toast.LENGTH_LONG).show()
-                    } else {
-                        storeUIJson(this@MainActivity, it)
-                        requestWidgetPin(3, 3)
-                    }
-                }
+                WidgetPackageScreen()
             }
         }
     }
 
     @Composable
-    fun UploadZipScreen(onJsonReady: (String) -> Unit) {
-        var jsonContent by remember { mutableStateOf<String?>(null) }
-        var status by remember { mutableStateOf("Select a zip file") }
+    fun WidgetPackageScreen() {
+        var selectedGridSize by remember { mutableStateOf(GridSize(2, 2)) }
+        var jsonText by remember { mutableStateOf("") }
+        var processState by remember { mutableStateOf<ProcessState>(ProcessState.Idle) }
 
         val context = LocalContext.current
         val coroutineScope = rememberCoroutineScope()
 
-        val filePickerLauncher =
-            rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
-                uri?.let {
-                    status = "Processing..."
-                    coroutineScope.launch {
-                        val json = unzipAndStore(context, uri)
-                        if (json != null) {
-                            jsonContent = json
-                            status = "JSON extracted!"
-                            onJsonReady(json)
-                        } else {
-                            status = "Failed to read zip"
+        val filePickerLauncher = rememberLauncherForActivityResult(
+            ActivityResultContracts.OpenDocument()
+        ) { uri: Uri? ->
+            uri?.let {
+                processState = ProcessState.Processing
+                coroutineScope.launch {
+                    when (val result = packageManager.processPackage(uri)) {
+                        is ProcessResult.Success -> {
+                            processState =
+                                ProcessState.Success("Package loaded successfully! JSON extracted and ready for editing.")
+                            jsonText = result.extractedPackage.uiJson
+                        }
+
+                        is ProcessResult.ValidationError -> {
+                            processState =
+                                ProcessState.Error("Validation failed: ${result.errors.joinToString()}")
+                        }
+
+                        is ProcessResult.Error -> {
+                            processState = ProcessState.Error(result.message)
                         }
                     }
                 }
             }
+        }
 
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+                .padding(WindowInsets.systemBars.asPaddingValues())
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Button(onClick = { filePickerLauncher.launch(arrayOf("application/zip")) }) {
-                Text("Upload Zip File")
-            }
 
             Spacer(modifier = Modifier.height(16.dp))
-            Text(status)
 
-            jsonContent?.let {
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = it.take(500) + if (it.length > 500) "..." else "",
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
+            // Upload Section
+            UploadSection(
+                processState = processState,
+                onUploadClick = {
+                    filePickerLauncher.launch(
+                        arrayOf(
+                            "application/zip",
+                            "application/x-zip-compressed"
+                        )
+                    )
+                }
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Grid Size Selection
+            GridSizeSelector(
+                selectedGridSize = selectedGridSize,
+                onGridSizeSelected = { selectedGridSize = it }
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // JSON Editor
+            JsonEditor(
+                jsonText = jsonText,
+                onJsonChanged = { jsonText = it },
+                onApplyChanges = {
+                    coroutineScope.launch {
+                        when (val result = packageManager.updateUIConfiguration(jsonText)) {
+                            is UpdateResult.Success -> {
+                                Toast.makeText(
+                                    context,
+                                    "UI updated successfully!",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+
+                            is UpdateResult.ValidationError -> {
+                                Toast.makeText(
+                                    context,
+                                    "Validation failed: ${result.errors.joinToString()}",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            }
+
+                            is UpdateResult.Error -> {
+                                Toast.makeText(
+                                    context,
+                                    "Error: ${result.message}",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            }
+                        }
+                    }
+                }
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Widget Actions
+            WidgetActions(
+                selectedGridSize = selectedGridSize,
+                onAddWidget = { gridSize ->
+                    requestWidgetPin(gridSize.height, gridSize.width)
+                },
+                onClearData = {
+                    coroutineScope.launch {
+                        packageManager.clearAll()
+                        jsonText = ""
+                        processState = ProcessState.Idle
+                        Toast.makeText(context, "All data cleared", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            )
         }
     }
 
-    suspend fun unzipAndStore(context: Context, uri: Uri): String? =
-        withContext(Dispatchers.IO) {
-            val baseDir = File(context.filesDir, "ui_package").apply {
-                // Clean up old extraction
-                if (exists()) deleteRecursively()
-                mkdirs()
-            }
-            val fontsDir = File(context.filesDir, "fonts").apply { mkdirs() }
+    @Composable
+    fun UploadSection(
+        processState: ProcessState,
+        onUploadClick: () -> Unit
+    ) {
+        Card(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Button(
+                    onClick = onUploadClick,
+                    enabled = processState !is ProcessState.Processing,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Upload Widget Package (.zip)")
+                }
 
-            var jsonString: String? = null
+                Spacer(modifier = Modifier.height(8.dp))
 
-            context.contentResolver.openInputStream(uri)?.use { inputStream ->
-                ZipInputStream(BufferedInputStream(inputStream)).use { zis ->
-                    var entry = zis.nextEntry
-                    while (entry != null) {
-                        val name = entry.name
-
-                        // Skip macOS metadata & hidden files
-                        if (name.contains("__MACOSX") || name.endsWith(".DS_Store")) {
-                            zis.closeEntry()
-                            entry = zis.nextEntry
-                            continue
+                when (processState) {
+                    is ProcessState.Processing -> {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            CircularProgressIndicator(modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Processing package...")
                         }
+                    }
 
-                        val file = when {
-                            name.endsWith(".ttf") || name.endsWith(".otf") -> File(fontsDir, name)
-                            else -> File(baseDir, name)
+                    is ProcessState.Success -> {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = null,
+                                tint = Color.Green,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(processState.message, color = Color.Green)
                         }
+                    }
 
-                        if (entry.isDirectory) {
-                            if (file.exists() && file.isFile) file.delete()
-                            file.mkdirs()
-                        } else {
-                            val parent = file.parentFile
-                            if (parent != null) {
-                                if (parent.exists() && parent.isFile) parent.delete()
-                                parent.mkdirs()
-                            }
-
-                            FileOutputStream(file).use { fos -> zis.copyTo(fos) }
-
-                            // Register font immediately if it is a font file
-                            if (file.extension in listOf("ttf", "otf")) {
-                                FontRegistry.registerFont(file.nameWithoutExtension, file.absolutePath)
-                            }
-
-                            if (file.name.equals("ui.json", ignoreCase = true)) {
-                                jsonString = file.readText()
-                            }
+                    is ProcessState.Error -> {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Warning,
+                                contentDescription = null,
+                                tint = Color.Red,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(processState.message, color = Color.Red)
                         }
+                    }
 
-                        zis.closeEntry()
-                        entry = zis.nextEntry
+                    is ProcessState.Idle -> {
+                        Text(
+                            text = "Select a zip file containing ui.json and resources",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
-            return@withContext jsonString
         }
+    }
 
     @Composable
-    fun AddWidgetButtons() {
-        val gridOptions = (1..4).flatMap { h -> (1..4).map { w -> "${h}x${w}" } }
+    fun GridSizeSelector(
+        selectedGridSize: GridSize,
+        onGridSizeSelected: (GridSize) -> Unit
+    ) {
+        val gridOptions = widgetFactory.getSupportedGridSizes()
         var expanded by remember { mutableStateOf(false) }
-        var selectedGrid by remember { mutableStateOf(gridOptions[0]) }
-        var jsonText by remember { mutableStateOf(loadSampleJson()) }
 
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp, 100.dp, 16.dp, 16.dp),
-            contentAlignment = Alignment.TopCenter,
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Widget Grid Size",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Box {
+                    OutlinedButton(
+                        onClick = { expanded = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(selectedGridSize.toString())
+                        Spacer(modifier = Modifier.weight(1f))
+                        Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                    }
+
+                    DropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false }
+                    ) {
+                        gridOptions.forEach { gridSize ->
+                            DropdownMenuItem(
+                                text = { Text(gridSize.toString()) },
+                                onClick = {
+                                    onGridSizeSelected(gridSize)
+                                    expanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @Composable
+    fun JsonEditor(
+        jsonText: String,
+        onJsonChanged: (String) -> Unit,
+        onApplyChanges: () -> Unit
+    ) {
+        var isValid by remember { mutableStateOf(true) }
+        var errorMessage by remember { mutableStateOf("") }
+        var showApplyConfirmation by remember { mutableStateOf(false) }
+        val hasContent = jsonText.trim().isNotEmpty()
+
+        LaunchedEffect(jsonText) {
+            // Updated validation: check if JSON starts with '{' or '[' and ends with '}' or ']'
+            val trimmed = jsonText.trim()
+            isValid = (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
+                    (trimmed.startsWith("[") && trimmed.endsWith("]")) ||
+                    trimmed.isEmpty()
+            errorMessage = if (!isValid) "Invalid JSON format" else ""
+        }
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = if (hasContent) MaterialTheme.colorScheme.primaryContainer.copy(
+                    alpha = 0.1f
+                )
+                else MaterialTheme.colorScheme.surface
+            )
         ) {
             Column(
-                horizontalAlignment = Alignment.CenterHorizontally
+                modifier = Modifier.padding(16.dp)
             ) {
-                GridOptionsDropDown(
-                    gridOptions = gridOptions,
-                    expanded = expanded,
-                    onExpandedChange = { isExpanded ->
-                        expanded = isExpanded
-                    },
-                    selectedGrid = selectedGrid,
-                    onGridSelected = { selected ->
-                        selectedGrid = selected
-                    },
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                JsonToUiConversion(selectedGrid, jsonText) { newJsonText ->
-                    jsonText = newJsonText
-                }
-            }
-        }
-    }
-
-    @Composable
-    fun GridOptionsDropDown(
-        gridOptions: List<String>,
-        expanded: Boolean,
-        onExpandedChange: (Boolean) -> Unit,
-        selectedGrid: String,
-        onGridSelected: (String) -> Unit
-    ) {
-        Text("Select Widget Grid Size")
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Box {
-            Row(
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                OutlinedTextField(
-                    value = selectedGrid,
-                    onValueChange = {},
-                    enabled = false,
-                    readOnly = true,
-                    label = { Text("Grid Size") },
-                    trailingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.ArrowDropDown,
-                            contentDescription = "Dropdown",
-                        )
-                    },
-                    modifier = Modifier
-                        .width(200.dp)
-                        .clickable { onExpandedChange(true) },
-                    colors = OutlinedTextFieldDefaults.colors().copy(
-                        disabledTextColor = MaterialTheme.colorScheme.onSurface,
-                        disabledIndicatorColor = MaterialTheme.colorScheme.outline,
-                        disabledPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        disabledLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        disabledTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Widget UI JSON Configuration",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
                     )
+
+                    if (hasContent) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "JSON Loaded",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                if (hasContent) {
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = "✓ JSON extracted from package. You can edit it below and click 'Apply Changes' to update your widget configuration.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.padding(12.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                OutlinedTextField(
+                    value = jsonText,
+                    onValueChange = { onJsonChanged(it) },
+                    label = { Text("Widget UI JSON") },
+                    placeholder = { Text("Upload a package to populate JSON or paste your JSON here...") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(400.dp),
+                    isError = !isValid
                 )
-            }
-            DropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { onExpandedChange(false) },
-                modifier = Modifier.width(200.dp)
-            ) {
-                gridOptions.forEach { grid ->
-                    DropdownMenuItem(text = { Text(grid) }, onClick = {
-                        onGridSelected(grid)
-                        onExpandedChange(false)
-                    })
+
+                if (!isValid) {
+                    Text(
+                        text = errorMessage,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Click 'Apply Changes' to save and use this JSON for widget rendering",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    Button(
+                        onClick = { showApplyConfirmation = true },
+                        enabled = isValid && hasContent,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary
+                        )
+                    ) {
+                        Text("Apply Changes")
+                    }
                 }
             }
+        }
+
+        // Confirmation Dialog
+        if (showApplyConfirmation) {
+            AlertDialog(
+                onDismissRequest = { showApplyConfirmation = false },
+                title = { Text("Apply JSON Changes") },
+                text = {
+                    Text("This will update your widget configuration with the current JSON. All widgets will use this new configuration for rendering. Continue?")
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showApplyConfirmation = false
+                            onApplyChanges()
+                        }
+                    ) {
+                        Text("Apply")
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = { showApplyConfirmation = false }
+                    ) {
+                        Text("Cancel")
+                    }
+                }
+            )
         }
     }
 
     @Composable
-    fun JsonToUiConversion(
-        selectedGrid: String,
-        jsonText: String,
-        onJsonChanged: (String) -> Unit
+    fun WidgetActions(
+        selectedGridSize: GridSize,
+        onAddWidget: (GridSize) -> Unit,
+        onClearData: () -> Unit
     ) {
-        UiJSONTextField(jsonText, onJsonChanged)
-        Spacer(modifier = Modifier.height(16.dp))
-        AddJsonUIButton(selectedGrid, jsonText)
-    }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Button(
+                onClick = { onAddWidget(selectedGridSize) },
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+            ) {
+                Text("Add Widget (${selectedGridSize.width}x${selectedGridSize.height})")
+            }
 
-    @Composable
-    fun UiJSONTextField(jsonText: String, onJSonTextChanged: (String) -> Unit) {
-        OutlinedTextField(
-            value = jsonText,
-            onValueChange = { onJSonTextChanged(it) },
-            label = { Text("Widget UI JSON") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(500.dp)
-        )
-    }
+            Spacer(modifier = Modifier.width(8.dp))
 
-    @Composable
-    fun AddJsonUIButton(selectedGrid: String, jsonText: String) {
-        Button(
-            onClick = {
-                val (heightValue, widthValue) = selectedGrid.split("x").map { it.toInt() }
-                storeUIJson(this@MainActivity, jsonText)
-                requestWidgetPin(heightValue, widthValue)
-            }) {
-            Text("Add JSON Widget")
+            Button(
+                onClick = onClearData,
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+            ) {
+                Text("Clear Data")
+            }
         }
     }
 
@@ -359,49 +512,18 @@ class MainActivity : ComponentActivity() {
         appWidgetManager.requestPinAppWidget(provider, null, null)
     }
 
-    private fun loadSampleJson(): String {
-        return """
-            [
-                {"id":"root_ui","type":"column","parentId":null,"attributes":{"margin":"16","background":"#222222","width":"match_parent","height":"match_parent"}},
-            
-                {"id":"header_row","type":"row","parentId":"root_ui","attributes":{"margin":"8","background":"#444444"}},
-                {"id":"body_stack","type":"stack","parentId":"root_ui","attributes":{"margin":"12","background":"#666666"}},
-                {"id":"footer_row","type":"row","parentId":"root_ui","attributes":{"margin":"8","background":"#888888"}},
-            
-                {"id":"header_title","type":"text","text":"Main Title","parentId":"header_row","attributes":{"color":"#FFFFFF","margin":"4"}},
-                {"id":"header_subtitle","type":"text","text":"Subtitle goes here","parentId":"header_row","attributes":{"color":"#AAAAAA","margin":"4"}},
-            
-                {"id":"body_column_1","type":"column","parentId":"body_stack","attributes":{"margin":"6","background":"#AAAAFF"}},
-                {"id":"body_column_2","type":"column","parentId":"body_stack","attributes":{"margin":"6","background":"#AAFFAA"}},
-            
-                {"id":"body_c1_text_1","type":"text","text":"Column 1 - Item 1","parentId":"body_column_1","attributes":{"color":"#000000"}},
-                {"id":"body_c1_text_2","type":"text","text":"Column 1 - Item 2","parentId":"body_column_1","attributes":{"color":"#000000"}},
-                {"id":"body_c2_text_1","type":"text","text":"Column 2 - Item 1","parentId":"body_column_2","attributes":{"color":"#000000"}},
-                {"id":"body_c2_text_2","type":"text","text":"Column 2 - Item 2","parentId":"body_column_2","attributes":{"color":"#000000"}},
-            
-                {"id":"c1_subrow_1","type":"row","parentId":"body_column_1","attributes":{"margin":"4","background":"#FFD700"}},
-                {"id":"c1_subrow_2","type":"row","parentId":"body_column_1","attributes":{"margin":"4","background":"#FFD700"}},
-            
-                {"id":"c1_subrow_1_item_1","type":"text","text":"Subrow 1 - Item 1","parentId":"c1_subrow_1","attributes":{"color":"#FF0000"}},
-                {"id":"c1_subrow_1_item_2","type":"text","text":"Subrow 1 - Item 2","parentId":"c1_subrow_1","attributes":{"color":"#00FF00"}},
-                {"id":"c1_subrow_2_item_1","type":"text","text":"Subrow 2 - Item 1","parentId":"c1_subrow_2","attributes":{"color":"#0000FF"}},
-                {"id":"c1_subrow_2_item_2","type":"text","text":"Subrow 2 - Item 2","parentId":"c1_subrow_2","attributes":{"color":"#FFFF00"}},
-            
-                {"id":"nested_stack_1","type":"stack","parentId":"c1_subrow_1_item_1","attributes":{"background":"#AA0000","margin":"3"}},
-                {"id":"nested_stack_1_text","type":"text","text":"Inside nested stack","parentId":"nested_stack_1","attributes":{"color":"#FFFFFF"}},
-            
-                {"id":"footer_left","type":"text","text":"Footer Left","parentId":"footer_row","attributes":{"color":"#FFFFFF"}},
-                {"id":"footer_right","type":"text","text":"Footer Right","parentId":"footer_row","attributes":{"color":"#FFFFFF"}}
-            ]
-        """.trimIndent()
+    private fun formatTimestamp(timestamp: Long): String {
+        val sdf = java.text.SimpleDateFormat("MMM dd, yyyy HH:mm", java.util.Locale.getDefault())
+        return sdf.format(java.util.Date(timestamp))
     }
+}
 
-
-    @Preview(showBackground = true)
-    @Composable
-    fun GreetingPreview() {
-        MyWidgetTheme {
-            AddWidgetButtons()
-        }
-    }
+/**
+ * State for package processing operations
+ */
+sealed class ProcessState {
+    object Idle : ProcessState()
+    object Processing : ProcessState()
+    data class Success(val message: String) : ProcessState()
+    data class Error(val message: String) : ProcessState()
 }
