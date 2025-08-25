@@ -25,6 +25,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -48,8 +49,13 @@ class MainActivity : ComponentActivity() {
 
         enableEdgeToEdge()
         setContent {
-            MyWidgetTheme {
-                WidgetPackageScreen()
+            MyWidgetTheme(dynamicColor = false) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    WidgetPackageScreen()
+                }
             }
         }
     }
@@ -72,7 +78,7 @@ class MainActivity : ComponentActivity() {
                     when (val result = packageManager.processPackage(uri)) {
                         is ProcessResult.Success -> {
                             processState =
-                                ProcessState.Success("Package loaded successfully! JSON extracted and ready for editing.")
+                                ProcessState.Success("Package loaded successfully! JSON extracted.")
                             jsonText = result.extractedPackage.uiJson
                         }
 
@@ -105,10 +111,7 @@ class MainActivity : ComponentActivity() {
                 processState = processState,
                 onUploadClick = {
                     filePickerLauncher.launch(
-                        arrayOf(
-                            "application/zip",
-                            "application/x-zip-compressed"
-                        )
+                        arrayOf("application/zip", "application/x-zip-compressed")
                     )
                 }
             )
@@ -184,7 +187,8 @@ class MainActivity : ComponentActivity() {
         onUploadClick: () -> Unit
     ) {
         Card(
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
         ) {
             Column(
                 modifier = Modifier.padding(16.dp),
@@ -193,7 +197,11 @@ class MainActivity : ComponentActivity() {
                 Button(
                     onClick = onUploadClick,
                     enabled = processState !is ProcessState.Processing,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ),
                 ) {
                     Icon(
                         imageVector = Icons.Default.Add,
@@ -209,36 +217,29 @@ class MainActivity : ComponentActivity() {
                 when (processState) {
                     is ProcessState.Processing -> {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            CircularProgressIndicator(modifier = Modifier.size(16.dp))
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                color = MaterialTheme.colorScheme.primary
+                            )
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Processing package...")
+                            Text("Processing package…")
                         }
                     }
 
                     is ProcessState.Success -> {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Check,
-                                contentDescription = null,
-                                tint = Color.Green,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(processState.message, color = Color.Green)
-                        }
+                        StatusRow(
+                            icon = Icons.Default.Check,
+                            text = processState.message,
+                            color = MaterialTheme.colorScheme.tertiary
+                        )
                     }
 
                     is ProcessState.Error -> {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Warning,
-                                contentDescription = null,
-                                tint = Color.Red,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(processState.message, color = Color.Red)
-                        }
+                        StatusRow(
+                            icon = Icons.Default.Warning,
+                            text = processState.message,
+                            color = MaterialTheme.colorScheme.error
+                        )
                     }
 
                     is ProcessState.Idle -> {
@@ -254,6 +255,20 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
+    private fun StatusRow(icon: ImageVector, text: String, color: Color) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = color,
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(text, color = color, style = MaterialTheme.typography.bodySmall)
+        }
+    }
+
+    @Composable
     fun GridSizeSelector(
         selectedGridSize: GridSize,
         onGridSizeSelected: (GridSize) -> Unit
@@ -261,7 +276,10 @@ class MainActivity : ComponentActivity() {
         val gridOptions = widgetFactory.getSupportedGridSizes()
         var expanded by remember { mutableStateOf(false) }
 
-        Card(modifier = Modifier.fillMaxWidth()) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
                     text = "Widget Grid Size",
@@ -312,7 +330,6 @@ class MainActivity : ComponentActivity() {
         val hasContent = jsonText.trim().isNotEmpty()
 
         LaunchedEffect(jsonText) {
-            // Updated validation: check if JSON starts with '{' or '[' and ends with '}' or ']'
             val trimmed = jsonText.trim()
             isValid = (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
                     (trimmed.startsWith("[") && trimmed.endsWith("]")) ||
@@ -322,16 +339,9 @@ class MainActivity : ComponentActivity() {
 
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = if (hasContent) MaterialTheme.colorScheme.primaryContainer.copy(
-                    alpha = 0.1f
-                )
-                else MaterialTheme.colorScheme.surface
-            )
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
         ) {
-            Column(
-                modifier = Modifier.padding(16.dp)
-            ) {
+            Column(modifier = Modifier.padding(16.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -344,48 +354,21 @@ class MainActivity : ComponentActivity() {
                     )
 
                     if (hasContent) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Check,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "JSON Loaded",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
+                        StatusRow(
+                            icon = Icons.Default.Check,
+                            text = "JSON Loaded",
+                            color = MaterialTheme.colorScheme.primary
+                        )
                     }
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                if (hasContent) {
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            text = "✓ JSON extracted from package. You can edit it below and click 'Apply Changes' to update your widget configuration.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.padding(12.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
-
                 OutlinedTextField(
                     value = jsonText,
                     onValueChange = { onJsonChanged(it) },
                     label = { Text("Widget UI JSON") },
-                    placeholder = { Text("Upload a package to populate JSON or paste your JSON here...") },
+                    placeholder = { Text("Upload or paste JSON here…") },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(400.dp),
@@ -409,7 +392,7 @@ class MainActivity : ComponentActivity() {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Click 'Apply Changes' to save and use this JSON for widget rendering",
+                        text = "Apply changes to update widget configuration",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.weight(1f)
@@ -419,8 +402,9 @@ class MainActivity : ComponentActivity() {
                         onClick = { showApplyConfirmation = true },
                         enabled = isValid && hasContent,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary
-                        )
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        ),
                     ) {
                         Text("Apply Changes")
                     }
@@ -428,30 +412,23 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // Confirmation Dialog
         if (showApplyConfirmation) {
             AlertDialog(
                 onDismissRequest = { showApplyConfirmation = false },
                 title = { Text("Apply JSON Changes") },
-                text = {
-                    Text("This will update your widget configuration with the current JSON. All widgets will use this new configuration for rendering. Continue?")
-                },
+                text = { Text("This will update your widget configuration for all widgets. Continue?") },
                 confirmButton = {
                     TextButton(
                         onClick = {
                             showApplyConfirmation = false
                             onApplyChanges()
                         }
-                    ) {
-                        Text("Apply")
-                    }
+                    ) { Text("Apply") }
                 },
                 dismissButton = {
                     TextButton(
                         onClick = { showApplyConfirmation = false }
-                    ) {
-                        Text("Cancel")
-                    }
+                    ) { Text("Cancel") }
                 }
             )
         }
@@ -470,7 +447,10 @@ class MainActivity : ComponentActivity() {
             Button(
                 onClick = { onAddWidget(selectedGridSize) },
                 modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                )
             ) {
                 Text("Add Widget (${selectedGridSize.width}x${selectedGridSize.height})")
             }
@@ -480,7 +460,9 @@ class MainActivity : ComponentActivity() {
             Button(
                 onClick = onClearData,
                 modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.secondary
+                )
             ) {
                 Text("Clear Data")
             }
@@ -511,16 +493,9 @@ class MainActivity : ComponentActivity() {
         val provider = ComponentName(this, providerClass)
         appWidgetManager.requestPinAppWidget(provider, null, null)
     }
-
-    private fun formatTimestamp(timestamp: Long): String {
-        val sdf = java.text.SimpleDateFormat("MMM dd, yyyy HH:mm", java.util.Locale.getDefault())
-        return sdf.format(java.util.Date(timestamp))
-    }
 }
 
-/**
- * State for package processing operations
- */
+/** State for package processing */
 sealed class ProcessState {
     object Idle : ProcessState()
     object Processing : ProcessState()
