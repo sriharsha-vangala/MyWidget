@@ -3,6 +3,7 @@ package com.example.mywidget.dynamic
 import android.annotation.SuppressLint
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceModifier
 import androidx.glance.background
 import androidx.glance.layout.width
@@ -97,6 +98,17 @@ object UiElementHelper {
     }
 
     /**
+     * Get image color/tint from attributes
+     */
+    fun getImageColor(attrs: Map<String, String>): Color? {
+        return attrs["tint"]?.let { colorRef ->
+            ColorRegistry.getColor(colorRef)
+        } ?: attrs["color"]?.let { colorRef ->
+            ColorRegistry.getColor(colorRef)
+        }
+    }
+
+    /**
      * Get horizontal alignment for containers
      */
     fun getHorizontalAlignment(attrs: Map<String, String>): Alignment.Horizontal {
@@ -139,6 +151,19 @@ object UiElementHelper {
             "start" -> Alignment.CenterStart
             "end" -> Alignment.CenterEnd
             else -> Alignment.TopStart
+        }
+    }
+
+    fun getFontName(attrs: Map<String, String>): String? {
+        return attrs["font"]
+    }
+
+    fun getFontSize(attrs: Map<String, String>): androidx.compose.ui.unit.TextUnit? {
+        val fontSizeStr = attrs["fontSize"] ?: return null
+        return try {
+            fontSizeStr.toFloatOrNull()?.sp
+        } catch (e: Exception) {
+            null
         }
     }
 }

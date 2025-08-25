@@ -50,7 +50,21 @@ class WidgetPackageManager private constructor(
             resourceStorage.storeResources(extractedPackage.resources)
             resourceStorage.storeUIConfiguration(extractedPackage.uiJson)
 
-            // Step 4: Initialize renderer with new configuration
+            // Step 4: Parse JSON and register fonts from resources section
+            val jsonObject = org.json.JSONObject(extractedPackage.uiJson)
+            val resources = jsonObject.optJSONObject("resources")
+            if (resources != null) {
+                val fontsObject = resources.optJSONObject("font")
+                if (fontsObject != null) {
+                    val fontsMap = mutableMapOf<String, String>()
+                    fontsObject.keys().forEach { key ->
+                        fontsMap[key] = fontsObject.getString(key)
+                    }
+                    resourceStorage.loadFontsFromResources(mapOf("font" to fontsMap))
+                }
+            }
+
+            // Step 5: Initialize renderer with new configuration
             widgetRenderer.updateConfiguration(extractedPackage.uiJson)
 
             ProcessResult.Success(extractedPackage)

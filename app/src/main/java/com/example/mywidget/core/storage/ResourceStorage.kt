@@ -283,4 +283,16 @@ class ResourceStorage(
             else -> "ttf" // Default fallback
         }
     }
+
+    fun loadFontsFromResources(resources: Map<String, Any>?) {
+        val fontMap = resources?.get("font") as? Map<*, *>
+        fontMap?.forEach { (name, fileName) ->
+            val fontName = name as? String
+            val fontFile = fileName as? String
+            if (fontName != null && fontFile != null) {
+                val fontPath = File(context.filesDir, "widget_resources/fonts/$fontFile").absolutePath
+                FontRegistry.registerFont(fontName, fontPath)
+            }
+        }
+    }
 }
