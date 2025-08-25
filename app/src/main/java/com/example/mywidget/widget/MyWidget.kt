@@ -110,18 +110,23 @@ class MyWidget : GlanceAppWidget() {
                     when (element.layout) {
                         UiElement.Layout.Row -> Row(
                             modifier = modifier,
+                            verticalAlignment = UiElementHelper.getVerticalAlignment(attributes),
+                            horizontalAlignment = UiElementHelper.getHorizontalAlignment(attributes)
                         ) {
                             RenderChildren(element, context)
                         }
 
                         UiElement.Layout.Column -> Column(
-                            modifier = modifier
+                            modifier = modifier,
+                            horizontalAlignment = UiElementHelper.getHorizontalAlignment(attributes),
+                            verticalAlignment = UiElementHelper.getVerticalAlignment(attributes)
                         ) {
                             RenderChildren(element, context)
                         }
 
                         UiElement.Layout.Stack -> Box(
-                            modifier = modifier
+                            modifier = modifier,
+                            contentAlignment = UiElementHelper.getAlignment(attributes)
                         ) {
                             RenderChildren(element, context)
                         }
@@ -132,7 +137,10 @@ class MyWidget : GlanceAppWidget() {
                     Text(
                         text = element.text,
                         modifier = modifier,
-                        style = TextStyle(color = ColorProvider(getTextColor(attributes)))
+                        style = TextStyle(
+                            color = ColorProvider(getTextColor(attributes)),
+                            textAlign = UiElementHelper.getTextAlignment(attributes)
+                        )
                     )
                 }
 

@@ -14,6 +14,8 @@ import androidx.glance.layout.padding
 import androidx.glance.layout.wrapContentHeight
 import androidx.glance.layout.wrapContentWidth
 import com.example.mywidget.json.ColorRegistry
+import androidx.glance.layout.Alignment
+import androidx.glance.text.TextAlign
 
 object UiElementHelper {
     @SuppressLint("RestrictedApi")
@@ -80,5 +82,63 @@ object UiElementHelper {
         val finalEnd = marginEnd ?: marginHorizontal ?: margin ?: 0
 
         return MarginValues(finalTop, finalBottom, finalStart, finalEnd)
+    }
+
+    /**
+     * Get text alignment from attributes
+     */
+    fun getTextAlignment(attrs: Map<String, String>): TextAlign {
+        return when (attrs["align"]) {
+            "start", "left" -> TextAlign.Start
+            "center" -> TextAlign.Center
+            "end", "right" -> TextAlign.End
+            else -> TextAlign.Start
+        }
+    }
+
+    /**
+     * Get horizontal alignment for containers
+     */
+    fun getHorizontalAlignment(attrs: Map<String, String>): Alignment.Horizontal {
+        return when (attrs["horizontalAlign"]) {
+            "start" -> Alignment.Start
+            "center" -> Alignment.CenterHorizontally
+            "end" -> Alignment.End
+            else -> Alignment.Start
+        }
+    }
+
+    /**
+     * Get vertical alignment for containers
+     */
+    fun getVerticalAlignment(attrs: Map<String, String>): Alignment.Vertical {
+        return when (attrs["verticalAlign"]) {
+            "top" -> Alignment.Top
+            "center" -> Alignment.CenterVertically
+            "bottom" -> Alignment.Bottom
+            else -> Alignment.Top
+        }
+    }
+
+    /**
+     * Get alignment for Box/Stack layouts
+     */
+    fun getAlignment(attrs: Map<String, String>): Alignment {
+        return when (attrs["align"]) {
+            "topStart" -> Alignment.TopStart
+            "topCenter" -> Alignment.TopCenter
+            "topEnd" -> Alignment.TopEnd
+            "centerStart" -> Alignment.CenterStart
+            "center" -> Alignment.Center
+            "centerEnd" -> Alignment.CenterEnd
+            "bottomStart" -> Alignment.BottomStart
+            "bottomCenter" -> Alignment.BottomCenter
+            "bottomEnd" -> Alignment.BottomEnd
+            "top" -> Alignment.TopCenter
+            "bottom" -> Alignment.BottomCenter
+            "start" -> Alignment.CenterStart
+            "end" -> Alignment.CenterEnd
+            else -> Alignment.TopStart
+        }
     }
 }
