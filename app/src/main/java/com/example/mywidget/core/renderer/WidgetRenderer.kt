@@ -171,8 +171,9 @@ class WidgetRenderer(
     private fun countUIElements(element: UiElement): Int {
         return when (element) {
             is UiElement.Container -> 1 + element.children.sumOf { countUIElements(it) }
-            is UiElement.TextNode -> 1
-            is UiElement.ImageNode -> 1
+            is UiElement.TextNode,
+            is UiElement.ImageNode,
+            is UiElement.ProgressNode -> 1
         }
     }
 }

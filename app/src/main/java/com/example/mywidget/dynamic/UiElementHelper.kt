@@ -19,33 +19,35 @@ import androidx.glance.layout.Alignment
 import androidx.glance.text.TextAlign
 
 object UiElementHelper {
+
+    fun GlanceModifier.applyIfNotNull(modifier: GlanceModifier?) = modifier?.let { this.then(it) } ?: this
+
     @SuppressLint("RestrictedApi")
     fun buildModifier(attrs: Map<String, String>): GlanceModifier {
-        var modifier: GlanceModifier = GlanceModifier.padding(0.dp)
+        val modifier: GlanceModifier = GlanceModifier.padding(0.dp)
 
-        // Handle background color with color registry support
-        attrs["backgroundColor"]?.let { colorRef ->
-            val color = ColorRegistry.getColor(colorRef)
-            modifier = modifier.background(ColorProvider(color))
-        }
+        modifier.applyIfNotNull(attrs["backgroundColor"]?.let {
+            val color = ColorRegistry.getColor(it)
+            GlanceModifier.background(ColorProvider(color))
+        })
 
-        attrs["width"]?.let {
-            when (it) {
-                "wrap_content" -> modifier = modifier.wrapContentWidth()
-                "match_parent" -> modifier = modifier.fillMaxWidth()
-                else -> it.toIntOrNull()?.let { w -> modifier = modifier.width(w.dp) }
-            }
-        }
+        modifier.applyIfNotNull(attrs["width"]?.let { width ->
+            parseDimension(width, true)
+        })
 
-        attrs["height"]?.let {
-            when (it) {
-                "wrap_content" -> modifier = modifier.wrapContentHeight()
-                "match_parent" -> modifier = modifier.fillMaxHeight()
-                else -> it.toIntOrNull()?.let { h -> modifier = modifier.height(h.dp) }
-            }
-        }
+        modifier.applyIfNotNull(attrs["height"]?.let { height ->
+            parseDimension(height, false)
+        })
 
         return modifier
+    }
+
+    fun parseDimension(value: String, isWidth: Boolean): GlanceModifier {
+        return when (value) {
+            "wrap_content" -> if (isWidth) GlanceModifier.wrapContentWidth() else GlanceModifier.wrapContentHeight()
+            "match_parent" -> if (isWidth) GlanceModifier.fillMaxWidth() else GlanceModifier.fillMaxHeight()
+            else -> value.toIntOrNull()?.let { dim -> if (isWidth) GlanceModifier.width(dim.dp) else GlanceModifier.height(dim.dp) }
+        } ?: GlanceModifier
     }
 
     fun getTextColor(attrs: Map<String, String?>): Color {
@@ -165,5 +167,21 @@ object UiElementHelper {
         } catch (e: Exception) {
             null
         }
+    }
+
+    fun getProgressColor(attrs: Map<String, String>): Color {
+        return attrs["progressColor"]?.let { colorRef ->
+            ColorRegistry.getColor(colorRef)
+        } ?: Color.Green
+    }
+
+    fun getProgressBackgroundColor(attrs: Map<String, String>): Color {
+        return attrs["progressBackgroundColor"]?.let { colorRef ->
+            ColorRegistry.getColor(colorRef)
+        } ?: Color.Gray
+    }
+
+    fun getProgressSize(attrs: Map<String, String>): Int {
+        return attrs["size"]?.toIntOrNull() ?: 50
     }
 }

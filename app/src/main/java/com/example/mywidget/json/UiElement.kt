@@ -23,5 +23,13 @@ sealed class UiElement {
         override val attributes: Map<String, String> = emptyMap()
     ) : UiElement()
 
+    data class ProgressNode(
+        override val id: String,
+        override val attributes: Map<String, String> = emptyMap(),
+        val type : ProgressType = ProgressType.Linear,
+        val percentage : Float = 0f
+    ) : UiElement()
+
     enum class Layout { Row, Column, Stack }
+    enum class ProgressType { Linear, Circular }
 }

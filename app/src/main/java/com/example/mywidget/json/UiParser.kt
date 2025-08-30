@@ -61,6 +61,16 @@ object UiParser {
                     val src = obj.optString("src", "")
                     UiElement.ImageNode(id, src, attrs)
                 }
+                "progress" -> {
+                    val type = if (obj.optString("progressType", "circular") == "circular") {
+                        UiElement.ProgressType.Circular
+                    } else {
+                        UiElement.ProgressType.Linear
+                    }
+                    val percentage = obj.optString("percentage", "0")
+
+                    UiElement.ProgressNode(id, attrs, type, percentage.toFloat())
+                }
                 else -> {
                     val layout = when (type.lowercase()) {
                         "row" -> UiElement.Layout.Row
