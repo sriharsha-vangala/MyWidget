@@ -2,7 +2,7 @@ package com.example.mywidget.core.renderer
 
 import android.content.Context
 import com.example.mywidget.core.storage.ResourceStorage
-import com.example.mywidget.json.UiElement
+import com.example.mywidget.data.model.UiElement
 import com.example.mywidget.json.UiParser
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow

@@ -1,5 +1,6 @@
 package com.example.mywidget.json
 
+import com.example.mywidget.data.model.UiElement
 import org.json.JSONObject
 import kotlin.collections.forEach
 

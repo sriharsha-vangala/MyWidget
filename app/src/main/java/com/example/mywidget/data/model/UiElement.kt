@@ -1,4 +1,4 @@
-package com.example.mywidget.json
+package com.example.mywidget.data.model
 
 sealed class UiElement {
     abstract val id: String

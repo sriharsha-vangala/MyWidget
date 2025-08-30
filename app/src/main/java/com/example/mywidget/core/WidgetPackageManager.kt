@@ -6,7 +6,7 @@ import com.example.mywidget.core.extractor.PackageExtractor
 import com.example.mywidget.core.storage.ResourceStorage
 import com.example.mywidget.core.validator.PackageValidator
 import com.example.mywidget.core.renderer.WidgetRenderer
-import com.example.mywidget.json.UiElement
+import com.example.mywidget.data.model.UiElement
 import kotlinx.coroutines.flow.Flow
 
 /**
